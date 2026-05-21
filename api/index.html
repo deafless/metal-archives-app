@@ -32,4 +32,192 @@ body{background:#2b2b2b;font-family:Georgia,serif;color:#ddd;max-width:480px;mar
 .status-other{color:#888;font-size:11px}
 .spinner-wrap{padding:30px;text-align:center;font-family:Arial,sans-serif;font-size:13px;color:#666}
 .spinner{display:inline-block;width:22px;height:22px;border:2px solid #333;border-top-color:#8b0000;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px}
-@keyframes
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{padding:16px 12px;color:#cc6666;font-family:Arial,sans-serif;font-size:13px;background:#1a0000;border-left:3px solid #8b0000;margin:12px;border-radius:2px;line-height:1.6}
+.error-box a{color:#cc3333}
+.empty-state{padding:50px 20px;text-align:center;color:#555;font-family:Arial,sans-serif}
+.empty-state .icon{font-size:32px;margin-bottom:12px}
+.empty-state p{font-size:13px;color:#444;margin-top:6px}
+.result-count{color:#666;font-size:11px;font-family:Arial,sans-serif;padding:5px 12px;background:#111;border-bottom:1px solid #222}
+.back-btn{background:none;border:1px solid #555;color:#aaa;padding:6px 12px;font-size:12px;cursor:pointer;font-family:Arial,sans-serif;border-radius:2px;margin:10px 12px;display:inline-block}
+.back-btn:hover{border-color:#8b0000;color:#fff}
+.band-detail-header{background:#111;padding:14px 12px;border-bottom:2px solid #8b0000}
+.band-detail-name{font-size:22px;font-weight:700;color:#fff;margin-bottom:4px}
+.band-detail-genre{font-size:13px;color:#cc3333;font-family:Arial,sans-serif}
+.detail-section{padding:12px;border-bottom:1px solid #2a2a2a}
+.detail-section-title{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;font-family:Arial,sans-serif;margin-bottom:10px;border-bottom:1px solid #2a2a2a;padding-bottom:5px}
+.detail-table{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px}
+.detail-table td{padding:6px 0;vertical-align:top}
+.detail-table .dt-label{color:#888;width:40%;font-size:12px}
+.detail-table .dt-value{color:#ccc}
+.detail-table .dt-value a{color:#cc3333;text-decoration:none}
+.browse-section{padding:14px 12px}
+.browse-title{font-size:12px;color:#888;font-family:Arial,sans-serif;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px}
+.alpha-grid{display:flex;flex-wrap:wrap;gap:5px}
+.alpha-btn{background:#1a1a1a;border:1px solid #333;color:#aaa;padding:7px 10px;font-size:13px;cursor:pointer;font-family:Arial,sans-serif;border-radius:2px;min-width:36px;text-align:center}
+.alpha-btn:hover{background:#8b0000;border-color:#8b0000;color:#fff}
+.ma-footer{background:#111;border-top:1px solid #333;padding:10px 12px;text-align:center;font-size:11px;color:#555;font-family:Arial,sans-serif}
+.ma-footer a{color:#8b0000;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="ma-header">
+  <div class="ma-logo-text">Encyclopaedia Metallum</div>
+  <div class="ma-logo-sub">The Metal Archives</div>
+  <div class="ma-nav">
+    <button class="ma-nav-btn active" id="nav-search" onclick="showView('search')">Buscar</button>
+    <button class="ma-nav-btn" id="nav-browse" onclick="showView('browse')">Explorar</button>
+    <button class="ma-nav-btn" onclick="window.open('https://www.metal-archives.com')">Sitio oficial ↗</button>
+  </div>
+</div>
+
+<div id="view-search">
+  <div class="search-bar">
+    <input type="text" id="q" placeholder="Nombre de banda..." onkeydown="if(event.key==='Enter')doSearch()">
+    <button onclick="doSearch()">Buscar</button>
+  </div>
+  <div id="results-area">
+    <div class="empty-state">
+      <div class="icon">🔍</div>
+      Ingresá el nombre de una banda
+      <p>Miles de bandas de metal de todo el mundo</p>
+    </div>
+  </div>
+</div>
+
+<div id="view-browse" style="display:none">
+  <div class="section-header">Explorar por letra</div>
+  <div class="browse-section">
+    <div class="browse-title">Seleccioná una letra</div>
+    <div class="alpha-grid" id="alpha-grid"></div>
+  </div>
+  <div id="browse-results"></div>
+</div>
+
+<div id="view-detail" style="display:none">
+  <div id="detail-content"></div>
+</div>
+
+<div class="ma-footer">
+  Datos de <a href="https://www.metal-archives.com">metal-archives.com</a>
+</div>
+
+<script>
+const PROXY = '/api/search';
+let currentView = 'search';
+let prevView = 'search';
+
+function showView(v) {
+  ['search','browse','detail'].forEach(x => {
+    const el = document.getElementById('view-'+x);
+    if(el) el.style.display = x===v ? 'block' : 'none';
+    const nb = document.getElementById('nav-'+x);
+    if(nb) nb.className = 'ma-nav-btn' + (x===v?' active':'');
+  });
+  prevView = currentView;
+  currentView = v;
+  if(v==='browse' && !document.getElementById('alpha-grid').children.length) buildAlpha();
+}
+
+function buildAlpha() {
+  const grid = document.getElementById('alpha-grid');
+  ['~','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'].forEach(l => {
+    const btn = document.createElement('button');
+    btn.className = 'alpha-btn';
+    btn.textContent = l;
+    btn.onclick = () => browseBy(l);
+    grid.appendChild(btn);
+  });
+}
+
+function parseCell(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  return d.textContent.trim();
+}
+
+function getBandId(html) {
+  const m = html.match(/\/bands\/[^\/]+\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+async function doSearch() {
+  const q = document.getElementById('q').value.trim();
+  if(!q) return;
+  const area = document.getElementById('results-area');
+  area.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Buscando...</div>';
+  try {
+    const res = await fetch(`${PROXY}?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    renderResults(data.aaData||[], q, 'results-area');
+  } catch(e) {
+    area.innerHTML = `<div class="error-box">Error al buscar. <a href="https://www.metal-archives.com/search?searchString=${encodeURIComponent(q)}&type=band_name">Ver en sitio oficial ↗</a></div>`;
+  }
+}
+
+async function browseBy(letter) {
+  const area = document.getElementById('browse-results');
+  area.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div>Cargando...</div>';
+  try {
+    const res = await fetch(`${PROXY}?letter=${encodeURIComponent(letter)}`);
+    const data = await res.json();
+    renderResults(data.aaData||[], letter, 'browse-results');
+  } catch(e) {
+    area.innerHTML = `<div class="error-box">Error al cargar. <a href="https://www.metal-archives.com/browse/band/l/${letter}">Ver en sitio oficial ↗</a></div>`;
+  }
+}
+
+function renderResults(rows, query, targetId) {
+  const target = document.getElementById(targetId);
+  if(!rows.length) {
+    target.innerHTML = `<div class="empty-state"><div class="icon">🎸</div>Sin resultados para "${query}"</div>`;
+    return;
+  }
+  let html = `<div class="result-count">${rows.length} resultado${rows.length!==1?'s':''}</div>`;
+  html += '<table class="results-table"><thead><tr><th>Banda</th><th>País</th><th>Género</th><th>Estado</th></tr></thead><tbody>';
+  rows.forEach(row => {
+    const name = parseCell(row[0]);
+    const country = parseCell(row[1]);
+    const genre = parseCell(row[2]);
+    const status = row[3] ? parseCell(row[3]) : '';
+    const id = getBandId(row[0]);
+    const sc = status==='Active'?'status-active':status.includes('Split')?'status-split':'status-other';
+    const safe = (s) => s.replace(/'/g,"\\'");
+    html += `<tr onclick="loadBand('${id}','${safe(name)}','${safe(genre)}','${safe(country)}','${safe(status)}')">
+      <td><span class="band-link">${name}</span></td>
+      <td class="country-text">${country}</td>
+      <td class="genre-text">${genre}</td>
+      <td class="${sc}">${status}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  target.innerHTML = html;
+}
+
+function loadBand(id, name, genre, country, status) {
+  showView('detail');
+  const sc = status==='Active'?'status-active':status.includes('Split')?'status-split':'status-other';
+  const maUrl = `https://www.metal-archives.com/bands/${encodeURIComponent(name.replace(/ /g,'_'))}/${id}`;
+  document.getElementById('detail-content').innerHTML = `
+    <button class="back-btn" onclick="showView('${prevView}')">← Volver</button>
+    <div class="band-detail-header">
+      <div class="band-detail-name">${name}</div>
+      <div class="band-detail-genre">${genre}</div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Información</div>
+      <table class="detail-table">
+        <tr><td class="dt-label">País</td><td class="dt-value">${country}</td></tr>
+        <tr><td class="dt-label">Género</td><td class="dt-value">${genre}</td></tr>
+        <tr><td class="dt-label">Estado</td><td class="dt-value"><span class="${sc}">${status}</span></td></tr>
+      </table>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Perfil completo</div>
+      <p style="font-family:Arial,sans-serif;font-size:13px;color:#aaa;margin-bottom:10px">Discografía, miembros, reseñas y más:</p>
+      <a href="${maUrl}" style="color:#cc3333;font-family:Arial,sans-serif;font-size:13px">Ver en Metal Archives ↗</a>
+    </div>`;
+}
+</script>
+</body>
+</html>
